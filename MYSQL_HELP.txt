@@ -1,0 +1,43 @@
+@echo off
+echo.
+echo ========================================
+echo MySQL Password Reset Instructions
+echo ========================================
+echo.
+echo Your MySQL service (MySQL80) is running, but the credentials in .env don't match.
+echo.
+echo OPTION 1: Try common passwords first
+echo   - "root" (no password)
+echo   - "password"
+echo   - "admin"
+echo   - "12345"
+echo.
+echo OPTION 2: Reset MySQL root password
+echo   1. Open Command Prompt as Administrator
+echo   2. Stop MySQL service:
+echo      net stop MySQL80
+echo   3. Start MySQL without grant tables:
+echo      "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld" --console --skip-grant-tables
+echo.
+echo   4. In another Command Prompt, connect:
+echo      mysql -u root
+echo.
+echo   5. Execute these commands:
+echo      FLUSH PRIVILEGES;
+echo      ALTER USER 'root'@'localhost' IDENTIFIED BY 'root';
+echo      EXIT;
+echo.
+echo   6. Restart MySQL service:
+echo      net start MySQL80
+echo.
+echo OPTION 3: Try connecting with user password format
+echo   Update .env DATABASE_URL with your actual password
+echo   Example: mysql://root:YourPassword@localhost:3306/hackathon_select_pro
+echo.
+echo ========================================
+echo After updating .env, run:
+echo   cd backend
+echo   npm run prisma:migrate
+echo ========================================
+echo.
+pause

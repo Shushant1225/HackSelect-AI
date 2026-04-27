@@ -1,0 +1,229 @@
+// This is your Prisma schema file for SQLite
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User/Student Model
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password      String
+  name          String
+  avatar        String?
+  role          String     @default("STUDENT")  // STUDENT, PROCTOR, ADMIN, ORGANIZER
+  phone         String?
+  college       String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  submissions   Submission[]
+  proctorLogs   ProctoringLog[]
+  webcamSessions WebcamSession[]
+  examsCreated  Exam[]       @relation("ExamCreator")
+
+  @@index([email])
+  @@index([role])
+}
+
+// Hackathon/Exam Model
+model Exam {
+  id                String     @id @default(cuid())
+  title             String
+  description       String?
+  subject           String
+  totalQuestions    Int
+  duration          Int        // in minutes
+  totalMarks        Int
+  passingMarks      Int?
+  status            String     @default("DRAFT")  // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
+  
+  // Proctoring settings
+  enableProctoring  Boolean    @default(true)
+  enableWebcam      Boolean    @default(true)
+  enableScreenShare Boolean    @default(true)
+  
+  createdBy         String
+  creator           User       @relation("ExamCreator", fields: [createdBy], references: [id])
+  
+  startTime         DateTime
+  endTime           DateTime
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Relations
+  questions         Question[]
+  submissions       Submission[]
+  proctorLogs       ProctoringLog[]
+
+  @@index([status])
+  @@index([createdBy])
+}
+
+// Question Model
+model Question {
+  id          String   @id @default(cuid())
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  questionText String
+  questionType String   // MCQ, SHORT_ANSWER, ESSAY, CODE
+  marks       Int
+  negativeMarks Int    @default(0)
+  difficulty  String   // EASY, MEDIUM, HARD
+  
+  // For MCQ
+  options     String?  // JSON string array of options
+  correctAnswer String? // For MCQ/SHORT_ANSWER
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  answers     Answer[]
+
+  @@index([examId])
+}
+
+// Student's Answer Model
+model Answer {
+  id          String   @id @default(cuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  submissionId String
+  submission  Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  answer      String?
+  marksObtained Int?
+  isCorrect   Boolean?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([questionId, submissionId])
+  @@index([submissionId])
+}
+
+// Exam Submission/Result Model
+model Submission {
+  id          String     @id @default(cuid())
+  studentId   String
+  student     User       @relation(fields: [studentId], references: [id])
+  
+  examId      String
+  exam        Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  status      String     @default("IN_PROGRESS")  // IN_PROGRESS, SUBMITTED, EVALUATED, REJECTED
+  totalMarks  Int?
+  obtainedMarks Int?
+  percentage  Float?
+  
+  startedAt   DateTime   @default(now())
+  submittedAt DateTime?
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  answers     Answer[]
+  violations  ProctoringViolation[]
+  webcamSessions WebcamSession[]
+
+  @@unique([studentId, examId])
+  @@index([examId])
+  @@index([status])
+}
+
+// Proctoring Violation Log
+model ProctoringViolation {
+  id          String   @id @default(cuid())
+  submissionId String
+  submission  Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  violationType String
+  message     String
+  severity    String   // LOW, MEDIUM, HIGH, CRITICAL
+  timestamp   DateTime @default(now())
+  
+  @@index([submissionId])
+  @@index([violationType])
+}
+
+// Proctoring Log Model
+model ProctoringLog {
+  id          String   @id @default(cuid())
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id])
+  
+  action      String   // LOGIN, LOGOUT, VIOLATION, FACE_DETECTION_CHANGE
+  details     String?  // JSON string
+  timestamp   DateTime @default(now())
+
+  @@index([examId])
+  @@index([studentId])
+  @@index([timestamp])
+}
+
+// Webcam Session Model (for storing webcam streams/snapshots)
+model WebcamSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  submissionId String?
+  submission  Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  
+  // Snapshots or stream frames
+  frameCount  Int      @default(0)
+  lastFrameUrl String?
+  
+  faceDetected Boolean  @default(false)
+  faceCount   Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([submissionId])
+}
+
+// Admin Dashboard Stats
+model DashboardStats {
+  id              String   @id @default(cuid())
+  totalStudents   Int      @default(0)
+  totalExams      Int      @default(0)
+  totalSubmissions Int    @default(0)
+  totalViolations Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+model ProctorSession {
+  id             String   @id @default(cuid())
+  studentId      String
+  examId         String
+  studentName    String
+  examName       String
+  startTime      DateTime @default(now())
+  isActive       Boolean  @default(true)
+  tabSwitches    Int      @default(0)
+  fullscreenExit Int      @default(0)
+  copyPaste      Int      @default(0)
+  rightClicks    Int      @default(0)
+  riskScore      Int      @default(0)
+  snapshotBase64 String?
+  lastEventAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

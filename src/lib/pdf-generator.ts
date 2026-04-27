@@ -1,0 +1,322 @@
+import jsPDF from "jspdf";
+
+interface PDFReportData {
+  candidateName: string;
+  examName: string;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  cheatingScore: number; // 0-100
+  riskLevel: "Low" | "Medium" | "High";
+  rank?: number;
+  violations: number;
+  status: string;
+  submittedAt: string;
+  aiRecommendation: string;
+}
+
+interface StudentPDFReportData {
+  candidateName: string;
+  examName: string;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  correct: number;
+  wrong: number;
+  unanswered: number;
+  status: string;
+  submittedAt: string;
+  recommendation: string;
+}
+
+export const generatePDF = (data: PDFReportData) => {
+  const pdf = new jsPDF();
+
+  // ✅ Typed as tuples so spread works with jsPDF's overloads
+  const primaryColor: [number, number, number] = [34, 197, 94];
+  const darkColor: [number, number, number] = [30, 30, 30];
+  const lightGray: [number, number, number] = [242, 242, 242];
+
+  // Set font
+  pdf.setFont("helvetica");
+
+  // Header
+  pdf.setFillColor(...primaryColor);
+  pdf.rect(0, 0, 210, 30, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(20);
+  pdf.text("HackSelect AI", 15, 20);
+  pdf.setFontSize(10);
+  pdf.text("Candidate Examination Report", 15, 27);
+
+  // Reset text color
+  pdf.setTextColor(...darkColor);
+
+  let yPosition = 40;
+
+  // Section 1: Candidate Information
+  pdf.setFontSize(12);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("CANDIDATE INFORMATION", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const candidateInfo = [
+    { label: "Name:", value: data.candidateName },
+    { label: "Exam:", value: data.examName },
+    { label: "Submission Date:", value: new Date(data.submittedAt).toLocaleDateString() },
+  ];
+
+  candidateInfo.forEach((item) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.label, 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(item.value, 50, yPosition);
+    yPosition += 6;
+  });
+
+  yPosition += 6;
+
+  // Section 2: Performance Metrics
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("PERFORMANCE METRICS", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const performanceMetrics = [
+    { label: "Score:", value: `${data.score}/${data.totalMarks}` },
+    { label: "Percentage:", value: `${Number(data.percentage).toFixed(2)}%` },
+    { label: "Status:", value: data.status.toUpperCase() },
+  ];
+
+  performanceMetrics.forEach((item) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.label, 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(item.value, 50, yPosition);
+    yPosition += 6;
+  });
+
+  if (data.rank) {
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Rank:", 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`#${data.rank}`, 50, yPosition);
+    yPosition += 6;
+  }
+
+  yPosition += 6;
+
+  // Section 3: Proctoring & Integrity
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("EXAM INTEGRITY", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  // Cheating Score Background
+  pdf.setFillColor(...lightGray);
+  pdf.rect(15, yPosition - 3, 180, 6, "F");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Cheating Score:", 15, yPosition);
+
+  // ✅ Typed as tuple so spread works
+  const cheatingColor: [number, number, number] =
+    data.cheatingScore < 30
+      ? [34, 197, 94]
+      : data.cheatingScore < 70
+      ? [251, 146, 60]
+      : [239, 68, 68];
+  pdf.setTextColor(...cheatingColor);
+  pdf.text(`${data.cheatingScore}%`, 50, yPosition);
+  pdf.setTextColor(...darkColor);
+  yPosition += 8;
+
+  // Risk Level
+  pdf.setFillColor(...lightGray);
+  pdf.rect(15, yPosition - 3, 180, 6, "F");
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...darkColor);
+  pdf.text("Risk Level:", 15, yPosition);
+
+  // ✅ Typed as tuple so spread works
+  const riskColor: [number, number, number] =
+    data.riskLevel === "Low"
+      ? [34, 197, 94]
+      : data.riskLevel === "Medium"
+      ? [251, 146, 60]
+      : [239, 68, 68];
+  pdf.setTextColor(...riskColor);
+  pdf.text(data.riskLevel, 50, yPosition);
+  pdf.setTextColor(...darkColor);
+  yPosition += 8;
+
+  // Violations
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Violations Detected:", 15, yPosition);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(data.violations.toString(), 50, yPosition);
+  yPosition += 8;
+
+  yPosition += 4;
+
+  // Section 4: AI Recommendation
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("AI RECOMMENDATION", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+
+  // Wrap recommendation text
+  const recommendation = pdf.splitTextToSize(data.aiRecommendation, 180);
+  pdf.text(recommendation, 15, yPosition);
+
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text("Generated by HackSelect AI • " + new Date().toLocaleString(), 15, 280);
+
+  return pdf;
+};
+
+export const downloadPDF = (data: PDFReportData) => {
+  const pdf = generatePDF(data);
+  const fileName = `${data.candidateName}_${data.examName}_Report.pdf`;
+  pdf.save(fileName);
+};
+
+export const generateStudentPDF = (data: StudentPDFReportData) => {
+  const pdf = new jsPDF();
+
+  // ✅ Typed as tuples
+  const primaryColor: [number, number, number] = [34, 197, 94];
+  const darkColor: [number, number, number] = [30, 30, 30];
+
+  // Set font
+  pdf.setFont("helvetica");
+
+  // Header
+  pdf.setFillColor(...primaryColor);
+  pdf.rect(0, 0, 210, 30, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(20);
+  pdf.text("HackSelect AI", 15, 20);
+  pdf.setFontSize(10);
+  pdf.text("Student Result Report", 15, 27);
+
+  // Reset text color
+  pdf.setTextColor(...darkColor);
+
+  let yPosition = 40;
+
+  // Section 1: Student Information
+  pdf.setFontSize(12);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("STUDENT INFORMATION", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const studentInfo = [
+    { label: "Name:", value: data.candidateName },
+    { label: "Exam:", value: data.examName },
+    { label: "Submission Date:", value: new Date(data.submittedAt).toLocaleDateString() },
+  ];
+
+  studentInfo.forEach((item) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.label, 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(item.value, 50, yPosition);
+    yPosition += 6;
+  });
+
+  yPosition += 6;
+
+  // Section 2: Performance Metrics
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("PERFORMANCE METRICS", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const performanceMetrics = [
+    { label: "Score:", value: `${data.score}/${data.totalMarks}` },
+    { label: "Percentage:", value: `${Number(data.percentage).toFixed(2)}%` },
+    { label: "Status:", value: data.status.toUpperCase() },
+  ];
+
+  performanceMetrics.forEach((item) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.label, 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(item.value, 50, yPosition);
+    yPosition += 6;
+  });
+
+  yPosition += 6;
+
+  // Section 3: Question Analysis
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("QUESTION ANALYSIS", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const questionAnalysis = [
+    { label: "Correct Answers:", value: data.correct.toString() },
+    { label: "Wrong Answers:", value: data.wrong.toString() },
+    { label: "Unanswered:", value: data.unanswered.toString() },
+  ];
+
+  questionAnalysis.forEach((item) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.label, 15, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(item.value, 50, yPosition);
+    yPosition += 6;
+  });
+
+  yPosition += 6;
+
+  // Section 4: Recommendation
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("RECOMMENDATION", 15, yPosition);
+  yPosition += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+
+  // Wrap recommendation text
+  const recommendation = pdf.splitTextToSize(data.recommendation, 180);
+  pdf.text(recommendation, 15, yPosition);
+
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text("Generated by HackSelect AI • " + new Date().toLocaleString(), 15, 280);
+
+  return pdf;
+};
+
+export const downloadStudentPDF = (data: StudentPDFReportData) => {
+  const pdf = generateStudentPDF(data);
+  const fileName = `${data.candidateName}_${data.examName}_Result.pdf`;
+  pdf.save(fileName);
+};

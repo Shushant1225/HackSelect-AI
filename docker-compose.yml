@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hackathon-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: hackathon_select_pro
+      MYSQL_USER: hackathon_user
+      MYSQL_PASSWORD: hackathon_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hackathon-network
+
+  # Optional: PhpMyAdmin for GUI database management
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: hackathon-phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: password
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    networks:
+      - hackathon-network
+
+volumes:
+  mysql_data:
+
+networks:
+  hackathon-network:
+    driver: bridge
